@@ -25,23 +25,28 @@ app.post('/terminal/connection-token', async (req, res) => {
     res.status(500).json({ error: err.message || 'Failed to create connection token' });
   }
 });
-
 // POST /terminal/create-payment-intent
 app.post('/terminal/create-payment-intent', async (req, res) => {
   try {
     const { amount, job_id, client_id, description } = req.body || {};
 
-  if (!amount) {
+    if (!amount) {
       return res.status(400).json({ error: 'Missing amount' });
     }
 
     const amountCents = Math.round(Number(amount) * 100);
 
-    const pi = await stripe.paymentIntents.create({
+    const paymentIntent = await stripe.paymentIntents.create({
       amount: amountCents,
       currency: 'usd',
-      description: description || `Job ${job_id || ''}`,
+
+      // ✅ REQUIRED for Stripe Terminal
+      payment_method_types: ['card_present'],
+
+      // ✅ matches your flow
       capture_method: 'manual',
+
+      description: description || `Job ${job_id || ''}`,
       metadata: {
         job_id: job_id || '',
         client_id: client_id || ''
@@ -49,14 +54,14 @@ app.post('/terminal/create-payment-intent', async (req, res) => {
     });
 
     res.json({
-      payment_intent_id: pi.id,
-      payment_intent_client_secret: pi.client_secret
+      payment_intent_id: paymentIntent.id,
+      payment_intent_client_secret: paymentIntent.client_secret
     });
   } catch (err) {
     console.error('Error creating payment intent:', err);
     res.status(500).json({ error: err.message || 'Failed to create payment intent' });
   }
-});
+});      
 
 // POST /terminal/capture-payment
 app.post('/terminal/capture-payment', async (req, res) => {
